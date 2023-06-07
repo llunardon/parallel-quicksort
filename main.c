@@ -47,7 +47,8 @@ int main (int argc, char **argv) {
     double timer;
     MPI_Status status;
 
-    if (argc != 3) {
+    // missing input file
+    if (argc != 2) {
         printf("Input arguments are invalid\n");
         exit(-1);
     }
@@ -148,9 +149,9 @@ int main (int argc, char **argv) {
 
     // print out final result
     if (rank == 0) {
-    //print_arr(data, n_elements);
+    print_arr(buf, n_elements);
 	printf("with %d cores it has taken time %f\n", n_cpus, timer);
-	//print_arr(chunk_sizes, n_cpus);
+	print_arr(chunk_sizes, n_cpus);
 	free(data);
     }
 
