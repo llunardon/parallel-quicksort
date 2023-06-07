@@ -1,18 +1,3 @@
-//void debug (int rank, char *format, ...) {
-//    // variable argument list
-//    va_list args; 
-//
-//    // initialize variable argument list
-//    // 'format' is last argument before '...'
-//    va_start(args, format); // initialize
-//
-//    printf("%12.6f|%2d|", get_timer(), rank);
-//    vprintf(format, args);
-//
-//    // clean up variable argument list
-//    va_end(args);
-//}
-
 #include <stdlib.h>
 #include <stdio.h>
 #include "utils.h"
@@ -54,4 +39,12 @@ int * concatenate (int *arr1, int *arr2, int size1, int size2) {
 		}
 	}
 	return ret_arr;
+}
+
+unsigned int log_2 (unsigned int x) {
+    unsigned int ans = 0;
+
+    while (x >>= 1) ans++;
+
+    return ans;
 }

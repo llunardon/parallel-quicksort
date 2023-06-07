@@ -45,6 +45,7 @@ int main (int argc, char **argv) {
     int n_elements;
     int n_cpus, rank;
     double timer;
+    MPI_Status status;
 
     if (argc != 3) {
         printf("Input arguments are invalid\n");
@@ -56,7 +57,8 @@ int main (int argc, char **argv) {
     MPI_Comm_size(MPI_COMM_WORLD, &n_cpus);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    // root process
+
+    // rank 0 is the root process
     if (rank == 0) {
         file = fopen(argv[1], "r");
         // first number in the file represents the number of elements
@@ -79,9 +81,12 @@ int main (int argc, char **argv) {
     // chunk_sizes[i] = size of chunk given to processor with rank i
     int *chunk_sizes;
     chunk_sizes = compute_chunk_sizes(n_elements, n_cpus);
-   
+
     // local buffer to store the partition of the data
-    buf = malloc(sizeof(chunk_sizes[rank]) * sizeof(int));
+    //buf = malloc(sizeof(chunk_sizes[rank]) * sizeof(int));
+    //buf = malloc(sizeof(chunk_sizes[rank]) * sizeof(int));
+    buf = malloc(chunk_sizes[rank] * sizeof(int));
+    int local_buf_size = chunk_sizes[rank];
     
     // displs[i] = offset from start of data array, from 
     // which processor i has to find its chunk
@@ -95,19 +100,61 @@ int main (int argc, char **argv) {
     // scatter elements with variable lengths, according to
     // array chunk_sizes and displacements
     MPI_Scatterv(data, chunk_sizes, displs, MPI_INT,
-                 buf, chunk_sizes[rank], MPI_INT, 0, MPI_COMM_WORLD);
-    free(data);
+    		 buf, chunk_sizes[rank], MPI_INT, 0, MPI_COMM_WORLD);
+
+    if (rank == 0) {
+        free(data);
+    }
     data = NULL;
 
+    // start measuring time
+    timer -= MPI_Wtime();
     // sort local buffer
     quick_sort(buf, 0, chunk_sizes[rank] - 1);
+
     MPI_Barrier(MPI_COMM_WORLD);
 
-    printf("buffer or rank %d after sorting: ", rank);
-    print_arr(buf, chunk_sizes[rank]);
+    // initialize variables for merging tree
+    int max_depth = log_2(n_cpus);
+    int offset = 1;
+    int recv_size = 0;
+    for (int level = 1; level <= max_depth; level ++) {
+        if (rank % (2 * offset) != 0) {
+	    MPI_Send(buf, local_buf_size, MPI_INT,
+       		     rank - offset, 0, MPI_COMM_WORLD);
+            break;
+        } 
+
+        if (rank + offset < n_cpus) {
+	    // get the size of receiving buffer using Probe
+	    MPI_Probe(rank + offset, 0, MPI_COMM_WORLD, &status);
+	    MPI_Get_count(&status, MPI_INT, &recv_size);
+
+	    // receive the actual buffer
+	    int *recv_buf = malloc(sizeof(int) * (recv_size));
+	    MPI_Recv(recv_buf, recv_size, MPI_INT, rank + offset, 0, 
+	             MPI_COMM_WORLD, &status);
+
+	    data = concatenate(buf, recv_buf, local_buf_size, recv_size);
+	    free(buf);
+	    free(recv_buf);
+	    buf = data;
+	    local_buf_size += recv_size;
+        }
+	offset *= 2;
+    }
+
+    timer += MPI_Wtime();
+
+    // print out final result
+    if (rank == 0) {
+    //print_arr(data, n_elements);
+	printf("with %d cores it has taken time %f\n", n_cpus, timer);
+	//print_arr(chunk_sizes, n_cpus);
+	free(data);
+    }
 
     free(chunk_sizes);
-    free(buf);
     MPI_Finalize();
     return 0;
 }
