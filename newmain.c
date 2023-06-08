@@ -44,16 +44,15 @@ int main (int argc, char **argv) {
     int *buf;
     int n_elements;
     int n_cpus, rank;
-    double start_time, end_time;
+    double timer;
     MPI_Status status;
 
-    if (argc != 2) {
+    if (argc != 3) {
         printf("Input arguments are invalid\n");
         exit(-1);
     }
 
     MPI_Init(&argc, &argv);
-    start_time = MPI_Wtime();
 
     MPI_Comm_size(MPI_COMM_WORLD, &n_cpus);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -74,20 +73,15 @@ int main (int argc, char **argv) {
         file = NULL;
     }
 
-    // sequential version
-    if (n_cpus == 1) {
-    	quick_sort(data, 0, n_elements);
-        end_time = MPI_Wtime();
-	printf("with the sequential algorithm and %d core it has taken time %f\n", n_cpus, end_time - start_time);
-        //print_arr(data, n_elements);
-        free(data);
-        MPI_Finalize();
-        return 0;
-    }
+    //if (n_cpus == 1) {
+    //	quick_sort(data, 0, n_elements);
+    //    return 0;
+    //}
+    timer -= MPI_Wtime();
 
+    MPI_Barrier(MPI_COMM_WORLD);
     // broadcast size of data to all other processes
     MPI_Bcast(&n_elements, 1, MPI_INT, 0, MPI_COMM_WORLD);
-    MPI_Barrier(MPI_COMM_WORLD);
 
     // calculate size of individual chunks and displacements array
     // chunk_sizes[i] = size of chunk given to processor with rank i
@@ -107,6 +101,10 @@ int main (int argc, char **argv) {
     for (int i = 1; i < n_cpus; i++) {
         displs[i] = displs[i -1] + chunk_sizes[i - 1];
     }
+    //if (rank == 0) {
+    //    print_arr(chunk_sizes, n_cpus);
+    //    print_arr(displs, n_cpus);
+    //}
     MPI_Barrier(MPI_COMM_WORLD);
     
     // scatter elements with variable lengths, according to
@@ -154,15 +152,12 @@ int main (int argc, char **argv) {
 	offset *= 2;
     }
 
-
-    MPI_Barrier(MPI_COMM_WORLD);
-    //timer += MPI_Wtime();
+    timer += MPI_Wtime();
 
     // print out final result
     if (rank == 0) {
         //print_arr(data, n_elements);
-	end_time = MPI_Wtime();
-	printf("with %d cores it has taken time %f\n", n_cpus, end_time - start_time);
+	printf("with %d cores it has taken time %f\n", n_cpus, timer);
 	//print_arr(chunk_sizes, n_cpus);
 	free(data);
     }

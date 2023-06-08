@@ -1,0 +1,5 @@
+with 1 cores it has taken time 5.334191
+with 2 cores it has taken time 1.341949
+with 4 cores it has taken time 0.340702
+with 8 cores it has taken time 0.092335
+with 16 cores it has taken time 0.026800
